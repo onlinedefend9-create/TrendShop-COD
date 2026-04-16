@@ -147,6 +147,63 @@ export default function App() {
   const [showOrderForm, setShowOrderForm] = useState(false);
   const [heroIndex, setHeroIndex] = useState(0);
   
+  // --- TIKTOK PIXEL TRACKING - REUSABLE FUNCTIONS ---
+  const trackTiktok = (event: string, data?: any) => {
+    if (typeof window !== 'undefined' && (window as any).ttq) {
+      (window as any).ttq.track(event, data);
+    }
+  };
+
+  const trackViewContent = (product: typeof products[0]) => {
+    trackTiktok('ViewContent', {
+      content_id: product.id,
+      content_name: product.name,
+      content_type: 'product',
+      value: product.price,
+      currency: 'MAD'
+    });
+  };
+
+  const trackInitiateCheckout = (product: typeof products[0]) => {
+    trackTiktok('InitiateCheckout', {
+      content_id: product.id,
+      content_name: product.name,
+      content_type: 'product',
+      value: product.price,
+      currency: 'MAD'
+    });
+  };
+
+  const trackLead = (productName: string, price: number, id: number) => {
+    trackTiktok('Lead', {
+      content_id: id,
+      content_name: productName,
+      content_type: 'product',
+      value: price,
+      currency: 'MAD'
+    });
+  };
+
+  // Prevent multiple ViewContent firings on re-renders
+  const hasTrackedViewRef = useRef(false);
+
+  useEffect(() => {
+    trackTiktok('page');
+    // Track main product ViewContent once on page load as requested
+    if (!hasTrackedViewRef.current) {
+      trackViewContent(products[0]);
+      hasTrackedViewRef.current = true;
+    }
+  }, []);
+
+  const handleOpenOrder = (product: typeof products[0]) => {
+    setSelectedProduct(product);
+    setShowOrderForm(true);
+    
+    // Triggered ONLY when the COD order form is opened
+    trackInitiateCheckout(product);
+  };
+  
   const heroImages = [
     'https://lh3.googleusercontent.com/d/1dN6gHeczAGCRCMyMX--k6YI6BAU4w9DV',
     'https://lh3.googleusercontent.com/d/1kGFGXN6KS-c9ryKWpfCv8RXwOH09Y2hW',
@@ -190,6 +247,10 @@ export default function App() {
     const price = selectedProduct?.price || products[0].price;
 
     const message = `طلب جديد من تريند شوب:\nالمنتج: ${product}\nالمقاس: ${size}\nالثمن: ${price} درهم\nالاسم: ${name}\nالهاتف: ${phone}\nالمدينة: ${city}`;
+    
+    // Triggered ONLY when user clicks WhatsApp order button OR submits the form
+    trackLead(product, Number(price), selectedProduct?.id || products[0].id);
+
     window.open(`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(message)}`, '_blank');
     setShowOrderForm(false);
     setSelectedProduct(null);
@@ -197,6 +258,11 @@ export default function App() {
 
   const sendWhatsApp = (productName: string, price: number) => {
     const message = `سلام تريند شوب، بغيت نطلب ${productName} بثمن ${price} درهم، واش مازال متوفر؟`;
+    
+    // Triggered ONLY when user clicks WhatsApp order button OR submits the form
+    const productData = products.find(p => p.name === productName) || products[0];
+    trackLead(productName, price, productData.id);
+
     window.open(`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
@@ -311,7 +377,7 @@ export default function App() {
             <motion.button 
               whileHover={{ scale: 1.05, boxShadow: "0 0 20px rgba(212, 175, 55, 0.3)" }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => { setSelectedProduct(products[0]); setShowOrderForm(true); }}
+              onClick={() => handleOpenOrder(products[0])}
               className="gold-gradient text-black py-3 px-10 rounded-full font-black text-[10px] md:text-xs shadow-xl transition-all font-ui uppercase tracking-widest"
             >
               اطلبي الآن
@@ -365,10 +431,7 @@ export default function App() {
           <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-8 max-w-2xl mx-auto">
             <motion.button
               whileHover={{ scale: 1.05, boxShadow: "0 0 30px rgba(212, 175, 55, 0.4)" }}
-              onClick={() => {
-                const el = document.getElementById('collection');
-                el?.scrollIntoView({ behavior: 'smooth' });
-              }}
+              onClick={() => handleOpenOrder(products[0])}
               className="w-full md:w-auto gold-gradient text-black py-5 md:py-6 px-10 md:px-16 rounded-full font-black text-xl md:text-2xl flex items-center justify-center gap-4 transition-all font-ui shadow-2xl"
             >
               اكتشفي المجموعة
@@ -493,7 +556,7 @@ export default function App() {
             >
               <div 
                 className="relative w-full h-64 md:h-[450px] rounded-2xl md:rounded-[2rem] overflow-hidden gold-border transition-all duration-700 cursor-pointer hypnotic-glow"
-                onClick={() => { setSelectedProduct(p); setShowOrderForm(true); }}
+                onClick={() => handleOpenOrder(p)}
               >
                 <img 
                   src={p.image} 
@@ -526,7 +589,7 @@ export default function App() {
                 </div>
                 <motion.button 
                   whileHover={{ scale: 1.05 }}
-                  onClick={() => { setSelectedProduct(p); setShowOrderForm(true); }}
+                  onClick={() => handleOpenOrder(p)}
                   className="w-full bg-white/5 hover:bg-[#d4af37] hover:text-black text-[#d4af37] py-2.5 md:py-4 rounded-xl md:rounded-2xl font-black text-[10px] md:text-sm uppercase tracking-widest transition-all gold-border font-ui"
                 >
                   احجزي الآن
@@ -731,7 +794,7 @@ export default function App() {
           <div className="max-w-md mx-auto relative z-10">
             <motion.button
               whileHover={{ scale: 1.05, boxShadow: "0 0 50px rgba(212, 175, 55, 0.6)" }}
-              onClick={() => { setSelectedProduct(products[0]); setShowOrderForm(true); }}
+              onClick={() => handleOpenOrder(products[0])}
               className="w-full gold-gradient text-black py-5 md:py-7 px-10 md:px-16 rounded-full font-black text-xl md:text-3xl shadow-2xl transition-all flex items-center justify-center gap-4 font-ui"
             >
               <ShoppingBag size={28} className="md:w-[32px] md:h-[32px]" />
